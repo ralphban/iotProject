@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IoT Dashboard</title>
+    <link rel="stylesheet" href="../static/styles.css">
+  </head>
+  <body>
+    <h1>IoT Dashboard</h1>
+
+    <div class="dashboard">
+      <p>Lights</p>
+      
+      <img id="lightbulb" src="../static/lightoff.png" alt="Lightbulb Off" />
+
+      <div class="switch">
+        <input type="checkbox" id="switchButton" onchange="toggleSwitch()" />
+        <label for="switchButton"></label>
+      </div>
+
+    </div>
+
+    <script>
+      let switchState = false
+      
+      function toggleSwitch() {
+        switchState = !switchState
+        const lightbulb = document.getElementById('lightbulb')
+      
+        // Update lightbulb image based on switch state
+        if (switchState) {
+          lightbulb.src = '../static/lighton.png'
+        } else {
+          lightbulb.src = '../static/lightoff.png'
+        }
+      
+        // Send data to the server to control the LED
+        fetch('/toggle-led', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ state: switchState })
+        })
+      }
+    </script>
+  </body>
+</html>

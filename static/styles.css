@@ -1,0 +1,73 @@
+body {
+    font-family: 'Orbitron', sans-serif;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #f4f4f4;
+    margin: 0px;
+}
+
+h1 {
+    background-color: #60b1dd;
+    color: #fff;
+    margin: 0px;
+    padding: 30px 0px 30px 50px;
+}
+
+.dashboard {
+    width: 220px;
+    height: 240px;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    margin: 20px 0px 0px 20px;
+    padding: 20px;
+    border: 1px solid #ccc;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+}
+
+.switch {
+    margin: 10px;
+}
+
+.switch input {
+    display: none;
+}
+
+.switch label {
+    width: 60px;
+    height: 34px;
+    background-color: #ccc;
+    display: inline-block;
+    border-radius: 34px;
+    position: relative;
+    cursor: pointer;
+}
+
+.switch label::after {
+    content: '';
+    width: 26px;
+    height: 26px;
+    background-color: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    transition: 0.3s;
+}
+
+.switch input:checked+label {
+    background-color: #28a745;
+}
+
+.switch input:checked+label::after {
+    transform: translateX(26px);
+}
+
+#lightbulb {
+    width: 100px;
+    height: 130px;
+}
