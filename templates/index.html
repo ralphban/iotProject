@@ -1,53 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IoT Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../static/styles.css">
-  </head>
-  <body>
-    <h1>IoT Dashboard</h1>
-
-    <div class="dashboard">
-      <p>Lights</p>
-      
-      <img id="lightbulb" src="../static/lightoff.png" alt="Lightbulb Off" />
-
-      <div class="switch">
-        <input type="checkbox" id="switchButton" onchange="toggleSwitch()" />
-        <label for="switchButton"></label>
-      </div>
-
-    </div>
-
+</head>
+<body>
+    <header>
+        <h1>IoT Dashboard</h1>
+    </header>
+    <main class="dashboard">
+        <!-- Light Intensity Section -->
+        <section class="card">
+            <h2>Light Intensity</h2>
+            <div class="content">
+                <div class="light-status">
+                    <img id="light-icon" src="../static/lightoff.png" alt="Light Status">
+                </div>
+                <div class="light-slider">
+                    <input type="range" id="intensity-slider" min="0" max="1023" value="0" disabled>
+                </div>
+                <p id="light-status">Status: Loading...</p>
+                <p>Intensity: <span id="light-intensity">Loading...</span></p>
+            </div>
+        </section>
+        <!-- Email Notification Section -->
+        <section class="card email-card" id="email-section" style="display: none;">
+            <h2>Email Notification</h2>
+            <p id="email-details">The Light is ON at HH:MM.</p>
+        </section>
+    </main>
+    <footer>
+        <p>© 2024 IoT Dashboard</p>
+    </footer>
     <script>
-      let switchState = false
-      
-      function toggleSwitch() {
-        switchState = !switchState
-        const lightbulb = document.getElementById('lightbulb')
-      
-        // Update lightbulb image based on switch state
-        if (switchState) {
-          lightbulb.src = '../static/lighton.png'
-        } else {
-          lightbulb.src = '../static/lightoff.png'
+        async function updateDashboard() {
+            try {
+                const response = await fetch('/status');
+                const data = await response.json();
+
+                // Update light intensity
+                const lightIntensity = data.light_intensity;
+                document.getElementById('light-intensity').innerText = lightIntensity;
+
+                // Update slider position
+                const intensitySlider = document.getElementById('intensity-slider');
+                intensitySlider.value = lightIntensity;
+
+                // Update light status and icon
+                const lightStatus = document.getElementById('light-status');
+                const lightIcon = document.getElementById('light-icon');
+                if (data.alert_message.includes("LED ON")) {
+                    lightStatus.innerText = "Status: Light ON";
+                    lightIcon.src = "../static/lighton.png";
+                } else if (data.alert_message.includes("LED OFF")) {
+                    lightStatus.innerText = "Status: Light OFF";
+                    lightIcon.src = "../static/lightoff.png";
+                } else {
+                    lightStatus.innerText = "Status: Unknown";
+                    lightIcon.src = "../static/lightunknown.png";
+                }
+
+                // Update email section visibility
+                const emailSection = document.getElementById('email-section');
+                if (data.email_sent) {
+                    emailSection.style.display = "block";
+                    const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    document.getElementById('email-details').innerText = `The Light is ON at ${currentTime}.`;
+                } else {
+                    emailSection.style.display = "none";
+                }
+
+            } catch (error) {
+                console.error("Error updating dashboard:", error);
+            }
         }
-      
-        // Send data to the server to control the LED
-        fetch('/toggle-led', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ state: switchState })
-        })
-      }
+
+        // Update the dashboard every 2 seconds
+        setInterval(updateDashboard, 2000);
+        updateDashboard(); // Initial call
     </script>
-  </body>
+</body>
 </html>
