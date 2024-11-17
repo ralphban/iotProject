@@ -24,20 +24,19 @@ EMAIL_PASSWORD = "nkkp epyd tqlr oglf"
 light_intensity = 0
 alert_message = ""
 email_sent = False
-
+email_sent_time = None
 
 # MQTT client setup
 mqtt_client = mqtt.Client()
 
 
 def on_message(client, userdata, message):
-    global light_intensity, alert_message, email_sent
+    global light_intensity, alert_message, email_sent, email_sent_time
     try:
         # Handle light intensity updates
         if message.topic == LIGHT_INTENSITY_TOPIC:
             light_intensity = int(message.payload.decode())
             print(f"Received light intensity: {light_intensity}")
-
 
         # Handle light alert messages
         elif message.topic == LIGHT_ALERT_TOPIC:
@@ -47,11 +46,14 @@ def on_message(client, userdata, message):
 
             # Send email if an alert is received
             if "LED ON" in alert_message and not email_sent:
-                current_time = datetime.now().strftime("%H:%M")
-                send_email(f"The Light is ON at {current_time}.")
+                email_sent_time = datetime.now().strftime("%H:%M")
+                send_email(f"The Light is ON at {email_sent_time}.")
                 email_sent = True
+            #    print("Email sent. Reseting email_sent flag")
+            #    email_sent = False
             elif "LED OFF" in alert_message:
                 email_sent = False  # Reset email flag when light is off
+                email_sent_time = None
 
 
     except Exception as e:
@@ -75,10 +77,15 @@ def dashboard():
 
 @app.route('/status', methods=['GET'])
 def status():
+    print(f"light_intensity: {light_intensity}")
+    print(f"aler_message: {alert_message}")
+    print(f"email_sent: {email_sent}")
+    print(f"email_sent_time: {email_sent_time}")
     return jsonify({
         'light_intensity': light_intensity,
         'alert_message': alert_message,
-        'email_sent': email_sent
+        'email_sent': email_sent,
+        'email_sent_time': email_sent_time
     })
 
 

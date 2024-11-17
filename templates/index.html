@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IoT Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../static/styles.css">
+    <link target=_blank href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" target=_blank href="../static/styles.css">
 </head>
 <body>
     <header>
@@ -24,12 +24,8 @@
                 </div>
                 <p id="light-status">Status: Loading...</p>
                 <p>Intensity: <span id="light-intensity">Loading...</span></p>
+                <p id="email-status" style="display: none;">Email Sent: --:--</p>
             </div>
-        </section>
-        <!-- Email Notification Section -->
-        <section class="card email-card" id="email-section" style="display: none;">
-            <h2>Email Notification</h2>
-            <p id="email-details">The Light is ON at HH:MM.</p>
         </section>
     </main>
     <footer>
@@ -63,14 +59,13 @@
                     lightIcon.src = "../static/lightunknown.png";
                 }
 
-                // Update email section visibility
-                const emailSection = document.getElementById('email-section');
-                if (data.email_sent) {
-                    emailSection.style.display = "block";
-                    const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    document.getElementById('email-details').innerText = `The Light is ON at ${currentTime}.`;
-                } else {
-                    emailSection.style.display = "none";
+                // Update email status 
+                const emailStatus = document.getElementById('email-status'); 
+                if (data.email_sent && data.email_sent_time) { 
+                    emailStatus.style.display = "block"; 
+                    emailStatus.innerText = `Email Sent: ${data.email_sent_time}`; 
+                } else { 
+                    emailStatus.style.display = "none"; 
                 }
 
             } catch (error) {
@@ -79,8 +74,9 @@
         }
 
         // Update the dashboard every 2 seconds
-        setInterval(updateDashboard, 2000);
+        setInterval(updateDashboard, 1000);
         updateDashboard(); // Initial call
     </script>
 </body>
 </html>
+ 

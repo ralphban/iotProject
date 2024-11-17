@@ -65,10 +65,18 @@ void loop() {
     reconnect();
   }
 
+  client.loop();
+
 
   int analogValue = analogRead(LIGHT_SENSOR_PIN);  // Read light sensor value
   Serial.print("Light sensor value: ");
   Serial.println(analogValue);
+
+  //Publish light intensity value
+  snprintf(msg, 50, "%d", analogValue);
+  client.publish("sensor/light_value", msg);
+  Serial.print("Published light intensity: ");
+  Serial.println(msg);
 
 
   // Control the LED based on light intensity
@@ -76,10 +84,12 @@ void loop() {
     digitalWrite(LED_PIN, HIGH);  // Turn on LED
     snprintf(msg, 50, "Light intensity low: %d. LED ON.", analogValue);
     client.publish("sensor/light_alert", msg);  // Publish alert
+    Serial.println("LED ON: Alert sent.");
   } else {
     digitalWrite(LED_PIN, LOW);  // Turn off LED
     snprintf(msg, 50, "Light intensity normal: %d. LED OFF.", analogValue);
-    client.publish("sensor/light_value", msg);  // Publish normal value
+    client.publish("sensor/light_alert", msg);  // Publish alert
+    Serial.println("LED OFF: Alert sent.");
   }
 
 
