@@ -1,76 +1,97 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, jsonify
+import paho.mqtt.client as mqtt
 import yagmail
-import RPi.GPIO as GPIO
-import Adafruit_DHT
+from datetime import datetime
 
 
 app = Flask(__name__)
 
 
-#GPIO setup
-LED_PIN = 18
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(LED_PIN, GPIO.OUT)
+# MQTT broker configuration
+MQTT_BROKER = "10.0.0.172"
+MQTT_PORT = 1883
+LIGHT_INTENSITY_TOPIC = "sensor/light_value"
+LIGHT_ALERT_TOPIC = "sensor/light_alert"
 
 
-#Initial LED state
-led_state = False
-GPIO.output(LED_PIN, GPIO.LOW)
+# Email setup
+SENDER_EMAIL = "ralphbantillo@gmail.com"
+RECEIVER_EMAIL = "ralphbantillo@gmail.com"
+EMAIL_PASSWORD = "nkkp epyd tqlr oglf"
 
 
-# DHT11 sensor setup
-DHT_SENSOR = Adafruit_DHT.DHT11
-DHT_PIN = 4
+# Global state variables
+light_intensity = 0
+alert_message = ""
+email_sent = False
+
+
+# MQTT client setup
+mqtt_client = mqtt.Client()
+
+
+def on_message(client, userdata, message):
+    global light_intensity, alert_message, email_sent
+    try:
+        # Handle light intensity updates
+        if message.topic == LIGHT_INTENSITY_TOPIC:
+            light_intensity = int(message.payload.decode())
+            print(f"Received light intensity: {light_intensity}")
+
+
+        # Handle light alert messages
+        elif message.topic == LIGHT_ALERT_TOPIC:
+            alert_message = message.payload.decode()
+            print(f"Received alert: {alert_message}")
+
+
+            # Send email if an alert is received
+            if "LED ON" in alert_message and not email_sent:
+                current_time = datetime.now().strftime("%H:%M")
+                send_email(f"The Light is ON at {current_time}.")
+                email_sent = True
+            elif "LED OFF" in alert_message:
+                email_sent = False  # Reset email flag when light is off
+
+
+    except Exception as e:
+        print(f"Error processing message: {e}")
+
+
+mqtt_client.on_message = on_message
+
+
+def connect_mqtt():
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
+    mqtt_client.subscribe(LIGHT_INTENSITY_TOPIC)
+    mqtt_client.subscribe(LIGHT_ALERT_TOPIC)
+    mqtt_client.loop_start()
 
 
 @app.route('/')
 def dashboard():
-    GPIO.output(LED_PIN, GPIO.LOW)
-    return render_template('index.html')
+    return render_template('index.html', light_intensity=light_intensity, alert_message=alert_message)
 
 
-## TODO: implement the logic for the led turning on
-@app.route('/toggle-led', methods=['POST'])
-def toggle_led():
-    #get current LED status
-    global led_state
-    
-    data = request.get_json()
-    #parse json data
-    switch_state = data['state'] #Get the state value
-    
-    if switch_state:
-        GPIO.output(LED_PIN, GPIO.HIGH) #Turn on LED if switch state is true
-        led_state = True #Update led_state to follow that LED is now on
-    else:
-        GPIO.output(LED_PIN, GPIO.LOW) #Turn off LED if switch state is false
-        led_state = False #Update led_state to follow that LED is now off
-        
-    return jsonify({'success': True, 'led_state': led_state}) # keep this line to indicate that the script passed and the led is turned on or off successfully, otherwise return False and include the current LED state in the response
+@app.route('/status', methods=['GET'])
+def status():
+    return jsonify({
+        'light_intensity': light_intensity,
+        'alert_message': alert_message,
+        'email_sent': email_sent
+    })
 
-# Data capture route for reading DHT11 sensor
-@app.route('/read-sensor', methods=['GET'])
-def read_sensor():
-    humidity, temperature = Adafruit_DHT.read(DHT_SENSOR, DHT_PIN)
-    if humidity is not None and temperature is not None:
-        # Send email if temperature exceeds 24°C
-        if temperature > 24:
-            send_email(temperature)
-        return jsonify({'temperature': temperature, 'humidity': humidity})
-    else:
-        return jsonify({'error': 'Failed to retrieve data from sensor'}), 500
 
-def send_email(current_temp):
-    sender_email = "iotdashboard2024@gmail.com"
-    receiver_email = "iotdashboard2024@gmail.com"
-    password = "dyqv qvrd yjzt eusa"
-    yag = yagmail.SMTP(user=sender_email, password=password)
+def send_email(body):
+    try:
+        yag = yagmail.SMTP(user=SENDER_EMAIL, password=EMAIL_PASSWORD)
+        subject = "Light Alert"
+        yag.send(to=RECEIVER_EMAIL, subject=subject, contents=body)
+        print("Email sent successfully.")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
 
-    subject = "Temperature Alert"
-    body = f"The current temperature is {current_temp}. Would you like to turn on the fan?"
-    yag.send(to=receiver_email, subject=subject, contents=body)
-    print("Sent!")
-        
+
 if __name__ == "__main__":
-    app.run()
-
+    connect_mqtt()
+    app.run(host="0.0.0.0", port=5000)
