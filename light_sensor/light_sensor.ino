@@ -2,8 +2,8 @@
 #include <PubSubClient.h>
 
 
-const char* ssid = "Rapcassrae2.4";  // Wi-Fi SSID
-const char* password = "5144490892";  // Wi-Fi Password
+const char* ssid = "Rapcassrae2.4";  // Wi-Fi SSID //TP-Link_2A8D
+const char* password = "5144490892";  // Wi-Fi Password //14730078
 const char* mqtt_server = "10.0.0.172";  // MQTT Broker IP address
 
 
