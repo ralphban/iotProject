@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IoT Dashboard</title>
-    <link target=_blank target=_blank href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" target=_blank target=_blank href="../static/styles.css">
+    <link target=_blank href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" target=_blank href="../static/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
 <body>
@@ -36,6 +36,20 @@
             <div class="gauges">
                 <div id="temperature-gauge"></div>
                 <div id="humidity-gauge"></div>
+            </div>
+        </section>
+
+
+        <!-- Fan Control Section -->
+        <section class="card">
+            <h2>Fan Status</h2>
+            <div class="content">
+                <img id="fan-icon" class="fan-status" src="../static/fan_off.png" alt="Fan Status">
+                <p id="fan-status">Fan is OFF</p>
+                <label class="switch">
+                    <input type="checkbox" id="fan-switch">
+                    <span class="slider"></span>
+                </label>
             </div>
         </section>
     </main>
@@ -82,11 +96,12 @@
                 },
                 yaxis: {
                     min: 0,
-                    max: 50, // Set a reasonable maximum for temperature (adjust as needed)
+                    max: 50, // Set a reasonable maximum for temperature
                 },
                 colors: ["#FF5733"], // Temperature Gauge Color
             });
             temperatureGauge.render();
+
 
             // Humidity Gauge
             humidityGauge = new ApexCharts(document.querySelector("#humidity-gauge"), {
@@ -127,7 +142,6 @@
             });
             humidityGauge.render();
         }
- 
 
 
         async function updateDashboard() {
@@ -163,9 +177,9 @@
 
                 // Update email status
                 const emailStatus = document.getElementById('email-status');
-                if (data.email_sent && data.email_sent_time) {
+                if (data.email_sent_light_time) {
                     emailStatus.style.display = "block";
-                    emailStatus.innerText = `Email Sent: ${data.email_sent_time}`;
+                    emailStatus.innerText = `Email Sent: ${data.email_sent_light_time}`;
                 } else {
                     emailStatus.style.display = "none";
                 }
@@ -178,10 +192,44 @@
                 if (data.humidity !== null && humidityGauge) {
                     humidityGauge.updateSeries([data.humidity]);
                 }
+
+
+                // Update fan status and toggle switch
+                const fanStatus = document.getElementById('fan-status');
+                const fanIcon = document.getElementById('fan-icon');
+                const fanSwitch = document.getElementById('fan-switch');
+
+
+                if (data.fan_state === "ON") {
+                    fanStatus.innerText = "Fan is ON";
+                    fanIcon.src = "../static/fan_on.png";
+                    fanSwitch.checked = true;
+                } else {
+                    fanStatus.innerText = "Fan is OFF";
+                    fanIcon.src = "../static/fan_off.png";
+                    fanSwitch.checked = false;
+                }
             } catch (error) {
                 console.error("Error updating dashboard:", error);
             }
         }
+
+
+        // Handle fan toggle
+        document.getElementById('fan-switch').addEventListener('change', async function () {
+            const isOn = this.checked;
+            try {
+                await fetch('/toggle-fan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ state: isOn ? "ON" : "OFF" }),
+                });
+            } catch (error) {
+                console.error("Error toggling fan:", error);
+            }
+        });
 
 
         // Initialize Gauges and Start Dashboard Updates
@@ -191,4 +239,3 @@
     </script>
 </body>
 </html>
- 
