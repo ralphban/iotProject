@@ -1,9 +1,14 @@
 from flask import Flask, render_template, jsonify, request
 import paho.mqtt.client as mqtt
 import yagmail
+import imaplib
+import email
+from email.header import decode_header
 from datetime import datetime
 import RPi.GPIO as GPIO
 import dht11
+import threading
+import time
 
 
 app = Flask(__name__)
@@ -14,13 +19,18 @@ MQTT_BROKER = "10.0.0.172"
 MQTT_PORT = 1883
 LIGHT_INTENSITY_TOPIC = "sensor/light_value"
 LIGHT_ALERT_TOPIC = "sensor/light_alert"
-FAN_CONTROL_TOPIC = "fan/control"
 
 
 # Email setup
 SENDER_EMAIL = "ralphbantillo@gmail.com"
 RECEIVER_EMAIL = "ralphbantillo@gmail.com"
 EMAIL_PASSWORD = "nkkp epyd tqlr oglf"
+
+
+# IMAP configuration for email reply handling
+IMAP_SERVER = "imap.gmail.com"
+IMAP_USER = SENDER_EMAIL
+IMAP_PASSWORD = EMAIL_PASSWORD
 
 
 # Global state variables
@@ -56,6 +66,8 @@ GPIO.output(Motor3, GPIO.LOW)
 
 # MQTT client setup
 mqtt_client = mqtt.Client()
+
+
 
 
 def on_message(client, userdata, message):
@@ -102,20 +114,15 @@ def on_message(client, userdata, message):
                 email_sent_temp = False  # Reset flag when temperature goes below threshold
 
 
-        # Handle fan control
-        if message.topic == FAN_CONTROL_TOPIC:
-            control_message = message.payload.decode().strip().upper()
-            if control_message == "YES":
-                turn_on_fan()
-            elif control_message == "NO":
-                turn_off_fan()
-
-
     except Exception as e:
         print(f"Error processing message: {e}")
 
 
+
+
 mqtt_client.on_message = on_message
+
+
 
 
 def turn_on_fan():
@@ -127,6 +134,8 @@ def turn_on_fan():
     print("Fan turned ON.")
 
 
+
+
 def turn_off_fan():
     global fan_state
     GPIO.output(Motor1, GPIO.LOW)
@@ -135,31 +144,117 @@ def turn_off_fan():
     fan_state = "OFF"
     print("Fan turned OFF.")
 
-@app.route('/toggle-fan', methods=['POST'])
-def toggle_fan():
+
+def check_email_replies():
+    """Checks the inbox for replies to the temperature email and handles fan control."""
     global fan_state
-    data = request.get_json()
-    if 'state' in data:
-        requested_state = data['state']
-        if requested_state == "ON":
-            turn_on_fan()
-        elif requested_state == "OFF":
-            turn_off_fan()
-        return jsonify({'success': True, 'fan_state': fan_state})
-    return jsonify({'success': False, 'message': 'Invalid request'})
+
+
+    try:
+        # Connect to the email server
+        print("Connecting to email server...")
+        mail = imaplib.IMAP4_SSL(IMAP_SERVER)
+        mail.login(IMAP_USER, IMAP_PASSWORD)
+        print("Successfully logged into email server.")
+
+
+        # Select the inbox
+        mail.select("inbox")
+
+
+        # Search for unread emails with "Re: IoT Alert" in the subject
+        print("Checking for unread email replies...")
+        status, messages = mail.search(None, '(UNSEEN SUBJECT "Re: IoT Alert")')
+        email_ids = messages[0].split()
+
+
+        for email_id in email_ids:
+            # Fetch the email
+            print(f"Processing email ID: {email_id.decode()}")
+            res, msg = mail.fetch(email_id, "(RFC822)")
+            for response in msg:
+                if isinstance(response, tuple):
+                    # Parse the email
+                    msg = email.message_from_bytes(response[1])
+
+
+                    # Decode the email body
+                    body = None
+                    if msg.is_multipart():
+                        for part in msg.walk():
+                            content_type = part.get_content_type()
+                            content_disposition = str(part.get("Content-Disposition"))
+                            if "attachment" not in content_disposition and content_type == "text/plain":
+                                body = part.get_payload(decode=True)
+                                if body:
+                                    body = body.decode().strip()
+                                    print(f"Email reply body: {body}")
+                                    handle_fan_control(body)  # Pass reply to fan control logic
+                    else:
+                        body = msg.get_payload(decode=True)
+                        if body:
+                            body = body.decode().strip()
+                            print(f"Email reply body: {body}")
+                            handle_fan_control(body)  # Pass reply to fan control logic
+
+
+            # Mark the email as read
+            mail.store(email_id, "+FLAGS", "\\Seen")
+
+
+        # Logout from the email server
+        mail.logout()
+        print("Logged out from email server.")
+
+        if fan_state == "OFF":
+            email_sent_temp = False
+            print("Resetting email_sent_temp")
+
+
+    except Exception as e:
+        print(f"Error checking email replies: {e}")
+
+
+
+
+def handle_fan_control(reply):
+    """Handles fan control based on the reply (YES/NO)."""
+    global fan_state
+    cleaned_reply = reply.strip().upper().replace('\r', '').replace('\n', '')
+    print(f"Cleaned reply for fan control: '{cleaned_reply}'")
+
+
+    if "Y" in cleaned_reply:
+        print("Turning on the fan based on email reply.")
+        turn_on_fan()
+    else:
+        print(f"Invalid fan control reply received: '{cleaned_reply}'")
+
+
+
+def periodic_email_check():
+    """Periodically checks for email replies every 10 seconds."""
+    while True:
+        check_email_replies()
+        time.sleep(10)
+
+
 
 
 def connect_mqtt():
     mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
     mqtt_client.subscribe(LIGHT_INTENSITY_TOPIC)
     mqtt_client.subscribe(LIGHT_ALERT_TOPIC)
-    mqtt_client.subscribe(FAN_CONTROL_TOPIC)  # Subscribe to fan control topic
     mqtt_client.loop_start()
+
+
 
 
 @app.route('/')
 def dashboard():
     return render_template('index.html', light_intensity=light_intensity, alert_message=alert_message)
+
+
 
 
 @app.route('/status', methods=['GET'])
@@ -177,6 +272,24 @@ def status():
     })
 
 
+
+
+@app.route('/toggle-fan', methods=['POST'])
+def toggle_fan():
+    global fan_state
+    data = request.get_json()
+    if 'state' in data:
+        requested_state = data['state']
+        if requested_state == "ON":
+            turn_on_fan()
+        elif requested_state == "OFF":
+            turn_off_fan()
+        return jsonify({'success': True, 'fan_state': fan_state})
+    return jsonify({'success': False, 'message': 'Invalid request'})
+
+
+
+
 def send_email(body):
     try:
         yag = yagmail.SMTP(user=SENDER_EMAIL, password=EMAIL_PASSWORD)
@@ -187,6 +300,9 @@ def send_email(body):
         print(f"Failed to send email: {e}")
 
 
+
+
 if __name__ == "__main__":
     connect_mqtt()
+    threading.Thread(target=periodic_email_check, daemon=True).start()
     app.run(host="0.0.0.0", port=5000)
