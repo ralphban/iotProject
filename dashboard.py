@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 
 # MQTT broker configuration
-MQTT_BROKER = "10.0.0.172"
+MQTT_BROKER = "10.0.0.171"
 MQTT_PORT = 1883
 LIGHT_INTENSITY_TOPIC = "sensor/light_value"
 LIGHT_ALERT_TOPIC = "sensor/light_alert"

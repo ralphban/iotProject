@@ -1,18 +1,23 @@
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
 #include <PubSubClient.h>
 
 
-const char* ssid = "Rapcassrae2.4";  // Wi-Fi SSID //TP-Link_2A8D
-const char* password = "5144490892";  // Wi-Fi Password //14730078
-const char* mqtt_server = "10.0.0.172";  // MQTT Broker IP address
+// Wi-Fi credentials
+const char* ssid = "Rapcassrae_2.4";  // Replace with your Wi-Fi SSID
+const char* password = "5144490892";  // Replace with your Wi-Fi password
+
+
+// MQTT broker configuration
+const char* mqtt_server = "10.0.0.171";  // MQTT Broker IP address
 
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 
-#define LIGHT_SENSOR_PIN A0  // Light sensor analog pin
-#define LED_PIN D1           // LED connected to GPIO5 (D1)
+// Pin definitions
+#define LIGHT_SENSOR_PIN 34  // Analog pin for light sensor (ESP32 ADC pin)
+#define LED_PIN 2            // GPIO2 for LED
 #define ANALOG_THRESHOLD 400 // Light threshold for turning on LED
 
 
@@ -22,11 +27,11 @@ char msg[50];
 
 void setup() {
   Serial.begin(115200);
-  pinMode(LED_PIN, OUTPUT); // Set LED pin as output
-  digitalWrite(LED_PIN, LOW); // Turn off LED initially
+  pinMode(LED_PIN, OUTPUT);  // Set LED pin as output
+  digitalWrite(LED_PIN, LOW);  // Turn off LED initially
 
 
-  Serial.println("ESP8266 is starting...");
+  Serial.println("ESP32 is starting...");
   WiFi.begin(ssid, password);
 
 
@@ -46,9 +51,10 @@ void setup() {
 
 
 void reconnect() {
+  // Reconnect to MQTT broker if disconnected
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
-    if (client.connect("ESP8266Client")) {
+    if (client.connect("ESP32Client")) {
       Serial.println("connected to MQTT broker");
     } else {
       Serial.print("failed, rc=");
@@ -61,25 +67,27 @@ void reconnect() {
 
 
 void loop() {
+  // Ensure MQTT connection
   if (!client.connected()) {
     reconnect();
   }
-
   client.loop();
 
 
-  int analogValue = analogRead(LIGHT_SENSOR_PIN);  // Read light sensor value
+  // Read light sensor value
+  int analogValue = analogRead(LIGHT_SENSOR_PIN);
   Serial.print("Light sensor value: ");
   Serial.println(analogValue);
 
-  //Publish light intensity value
+
+  // Publish light intensity value
   snprintf(msg, 50, "%d", analogValue);
   client.publish("sensor/light_value", msg);
   Serial.print("Published light intensity: ");
   Serial.println(msg);
 
 
-  // Control the LED based on light intensity
+  // Control LED based on light intensity
   if (analogValue < ANALOG_THRESHOLD) {
     digitalWrite(LED_PIN, HIGH);  // Turn on LED
     snprintf(msg, 50, "Light intensity low: %d. LED ON.", analogValue);
