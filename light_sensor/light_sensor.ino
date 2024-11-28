@@ -96,9 +96,6 @@ void loop() {
 
 
   if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
-        return; // No card detected
-    }
-
 
     // Construct UID in HEX format
     String uidHex = "";
@@ -118,6 +115,7 @@ void loop() {
 
 
     rfid.PICC_HaltA(); // Halt the card to be ready for the next one
+  }
 
   // Read light sensor value
   int analogValue = analogRead(LIGHT_SENSOR_PIN);

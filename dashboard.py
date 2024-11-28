@@ -75,10 +75,6 @@ mqtt_client = mqtt.Client()
 def get_user_profile(rfid_tag):
     conn = sqlite3.connect('user_profiles.db')
     cursor = conn.cursor()
-
-    cursor.execute("SELECT rfid_tag FROM users")
-    stored_tags = cursor.fetchall()
-    print(f"Stored RFID tags in DB: {[tag[0] for tag in stored_tags]}")
     print(f"Searching for user with RFID tag: {rfid_tag}")
 
     cursor.execute('''
@@ -88,7 +84,6 @@ def get_user_profile(rfid_tag):
 
 
     user = cursor.fetchone()
-    print(f"Database search result: {user}")
     conn.close()
 
 
@@ -154,7 +149,6 @@ def on_message(client, userdata, message):
             rfid_tag = message.payload.decode() # Get RFID tag from MQTT message
             print(f"Received RFID Tag: {rfid_tag}")
             user_profile = get_user_profile(rfid_tag)  # Fetch user profile from DB
-            print(f"User profile fetched: {user_profile}")
 
 
             if user_profile:
