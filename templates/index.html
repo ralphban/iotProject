@@ -56,6 +56,7 @@
                 </label>
             </div>
         </section>
+<<<<<<< HEAD
 <!-- User Profile Section -->
 <section class="card">
     <h2>User Profile</h2>
@@ -67,6 +68,17 @@
 </section>
 
 
+=======
+	<!-- User Profile Section -->
+	<section class="card">
+    		<h2>User Profile</h2>
+    		<div class="content">
+       	 	<p id="user-name">Name: Loading...</p>
+        	<p id="user-temp-threshold">Temperature Threshold: Loading...</p>
+        	<p id="user-light-threshold">Light Threshold: Loading...</p>
+    		</div>
+	</section>
+>>>>>>> a41772e0ce304efac730c4516337d330b50bab02
 
 
     </main>
@@ -284,7 +296,19 @@
         setInterval(updateDashboard, 2000);
         updateDashboard(); // Initial call
 
+<<<<<<< HEAD
         
+=======
+	if (data.user_profile) {
+            document.getElementById('user-name').innerText = `Name:${data.user_profile.name}`;
+            document.getElementById('user-temp-threshold').innerText = `Temperature Threshold: ${data.user_profile.temp_threshold}°C`;
+            document.getElementById('user-light-threshold').innerText = `Light Threshold: ${data.user_profile.light_threshold}`;
+        }
+
+    } catch (error) {
+        console.error("Error updating dashboard:", error);
+    }
+>>>>>>> a41772e0ce304efac730c4516337d330b50bab02
     </script>
 </body>
 </html>
