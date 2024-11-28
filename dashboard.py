@@ -5,6 +5,7 @@ import imaplib
 import email
 from email.header import decode_header
 from datetime import datetime
+import sqlite3  # For SQLite database interaction
 import RPi.GPIO as GPIO
 import dht11
 import threading
@@ -19,6 +20,7 @@ MQTT_BROKER = "10.0.0.171"
 MQTT_PORT = 1883
 LIGHT_INTENSITY_TOPIC = "sensor/light_value"
 LIGHT_ALERT_TOPIC = "sensor/light_alert"
+RFID_TAG_TOPIC = "sensor/rfid_tag"  # Topic to publish RFID tag
 
 
 # Email setup
@@ -43,6 +45,7 @@ email_sent_temp_time = None
 temperature = None
 humidity = None
 fan_state = "OFF"
+user_profile = {}  # Store user profile for front-end display
 
 
 # GPIO setup for DHT11 sensor
@@ -68,11 +71,43 @@ GPIO.output(Motor3, GPIO.LOW)
 mqtt_client = mqtt.Client()
 
 
+# Function to fetch user profile from the database based on RFID tag
+def get_user_profile(rfid_tag):
+    conn = sqlite3.connect('user_profiles.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT rfid_tag FROM users")
+    stored_tags = cursor.fetchall()
+    print(f"Stored RFID tags in DB: {[tag[0] for tag in stored_tags]}")
+    print(f"Searching for user with RFID tag: {rfid_tag}")
+
+    cursor.execute('''
+    SELECT name, temp_threshold, light_threshold
+    FROM users WHERE rfid_tag = ?
+    ''', (rfid_tag,))
 
 
+    user = cursor.fetchone()
+    print(f"Database search result: {user}")
+    conn.close()
+
+
+    if user:
+        return {
+            "name": user[0],
+            "temp_threshold": user[1],
+            "light_threshold": user[2]
+        }
+    else:
+        print(f"No user found for RFID tag: {rfid_tag}")
+        return None  # Return None if user not found
+
+
+# MQTT callback to handle incoming RFID tag
 def on_message(client, userdata, message):
     global light_intensity, alert_message, email_sent_light, email_sent_temp
     global email_sent_light_time, email_sent_temp_time, temperature, humidity, fan_state
+    global user_profile  # Add user_profile to global scope
 
 
     try:
@@ -114,15 +149,25 @@ def on_message(client, userdata, message):
                 email_sent_temp = False  # Reset flag when temperature goes below threshold
 
 
+        # Handle RFID tag messages
+        elif message.topic == RFID_TAG_TOPIC:
+            rfid_tag = message.payload.decode() # Get RFID tag from MQTT message
+            print(f"Received RFID Tag: {rfid_tag}")
+            user_profile = get_user_profile(rfid_tag)  # Fetch user profile from DB
+            print(f"User profile fetched: {user_profile}")
+
+
+            if user_profile:
+                print(f"User Profile Found: {user_profile}")
+            else:
+                print(f"User not found for UID! {rfid_tag}")
+
+
     except Exception as e:
         print(f"Error processing message: {e}")
 
 
-
-
 mqtt_client.on_message = on_message
-
-
 
 
 def turn_on_fan():
@@ -132,8 +177,6 @@ def turn_on_fan():
     GPIO.output(Motor3, GPIO.HIGH)
     fan_state = "ON"
     print("Fan turned ON.")
-
-
 
 
 def turn_off_fan():
@@ -206,6 +249,7 @@ def check_email_replies():
         mail.logout()
         print("Logged out from email server.")
 
+
         if fan_state == "OFF":
             email_sent_temp = False
             print("Resetting email_sent_temp")
@@ -213,8 +257,6 @@ def check_email_replies():
 
     except Exception as e:
         print(f"Error checking email replies: {e}")
-
-
 
 
 def handle_fan_control(reply):
@@ -231,7 +273,6 @@ def handle_fan_control(reply):
         print(f"Invalid fan control reply received: '{cleaned_reply}'")
 
 
-
 def periodic_email_check():
     """Periodically checks for email replies every 10 seconds."""
     while True:
@@ -239,22 +280,17 @@ def periodic_email_check():
         time.sleep(10)
 
 
-
-
 def connect_mqtt():
     mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
     mqtt_client.subscribe(LIGHT_INTENSITY_TOPIC)
     mqtt_client.subscribe(LIGHT_ALERT_TOPIC)
+    mqtt_client.subscribe(RFID_TAG_TOPIC)  # Subscribe to RFID tag topic
     mqtt_client.loop_start()
-
-
 
 
 @app.route('/')
 def dashboard():
     return render_template('index.html', light_intensity=light_intensity, alert_message=alert_message)
-
-
 
 
 @app.route('/status', methods=['GET'])
@@ -268,10 +304,9 @@ def status():
         'email_sent_temp_time': email_sent_temp_time,
         'temperature': temperature,
         'humidity': humidity,
-        'fan_state': fan_state
+        'fan_state': fan_state,
+        'user_profile': user_profile  # Return the user profile to the front-end
     })
-
-
 
 
 @app.route('/toggle-fan', methods=['POST'])
@@ -288,8 +323,6 @@ def toggle_fan():
     return jsonify({'success': False, 'message': 'Invalid request'})
 
 
-
-
 def send_email(body):
     try:
         yag = yagmail.SMTP(user=SENDER_EMAIL, password=EMAIL_PASSWORD)
@@ -298,8 +331,6 @@ def send_email(body):
         print("Email sent successfully.")
     except Exception as e:
         print(f"Failed to send email: {e}")
-
-
 
 
 if __name__ == "__main__":

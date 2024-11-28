@@ -95,34 +95,29 @@ void loop() {
   client.loop();
 
 
-  // RFID logic
-  if (rfid.PICC_IsNewCardPresent()) {
-    if (rfid.PICC_ReadCardSerial()) {
-      // Print UID of the RFID tag
-      Serial.print("Card UID: ");
-      String uid = "";
-      for (byte i = 0; i < rfid.uid.size; i++) {
-        // Print UID in HEX format with leading zeros
-        if (rfid.uid.uidByte[i] < 0x10) {
-          uid += "0";  // Add leading zero
-        }
-        uid += String(rfid.uid.uidByte[i], HEX);
-      }
-      Serial.println(uid);  // Print complete UID
-
-
-      // Publish RFID tag UID to MQTT broker
-      snprintf(msg, 50, "RFID Tag UID: %s", uid.c_str());
-      client.publish("sensor/rfid_tag", msg);
-      Serial.print("Published RFID tag UID: ");
-      Serial.println(msg);
-
-
-      // Halt PICC (RFID tag)
-      rfid.PICC_HaltA();
+  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
+        return; // No card detected
     }
-  }
 
+
+    // Construct UID in HEX format
+    String uidHex = "";
+    for (byte i = 0; i < rfid.uid.size; i++) {
+        if (rfid.uid.uidByte[i] < 0x10) {
+            uidHex += "0"; // Add leading zero for single-digit hex values
+        }
+        uidHex += String(rfid.uid.uidByte[i], HEX);
+    }
+    uidHex.toUpperCase(); // Format to uppercase
+
+
+    // Publish RFID UID
+    client.publish("sensor/rfid_tag", uidHex.c_str()); // Publish to RFID topic
+    Serial.print("Published RFID UID: ");
+    Serial.println(uidHex);
+
+
+    rfid.PICC_HaltA(); // Halt the card to be ready for the next one
 
   // Read light sensor value
   int analogValue = analogRead(LIGHT_SENSOR_PIN);
