@@ -98,13 +98,14 @@ def get_user_profile(rfid_tag):
         print(f"No user found for RFID tag: {rfid_tag}")
         return None  # Return None if user not found
 
+temp_threshold = 24
 
 # MQTT callback to handle incoming RFID tag
 def on_message(client, userdata, message):
     global light_intensity, alert_message, email_sent_light, email_sent_temp
     global email_sent_light_time, email_sent_temp_time, temperature, humidity, fan_state
     global user_profile  # Add user_profile to global scope
-
+    global temp_threshold
 
     try:
         # Handle light intensity updates
@@ -137,11 +138,11 @@ def on_message(client, userdata, message):
 
 
             # Send email for high temperature if condition met
-            if temperature > 24 and not email_sent_temp:
+            if temperature > temp_threshold and not email_sent_temp:
                 email_sent_temp_time = datetime.now().strftime("%H:%M")
                 send_email(f"The current temperature is {temperature}°C. Would you like to turn on the fan? Reply YES to this email.")
                 email_sent_temp = True
-            elif temperature <= 24:
+            elif temperature <= temp_threshold:
                 email_sent_temp = False  # Reset flag when temperature goes below threshold
 
 
@@ -158,11 +159,13 @@ def on_message(client, userdata, message):
                 email_body = f"User {user_name} entered at {entry_time}"
                 send_email(email_body)
                 print(f"User Profile Found: {user_profile}")
+
+                temp_threshold = user_profile['temp_threshold']
+                print(f"User Temp Threshold Set: {temp_threshold}")
                 client.publish(LIGHT_THRESHOLD_TOPIC, str(user_profile['light_threshold']))
                 print(f"User Light Threshold Sent: {user_profile['light_threshold']}")
             else:
                 print(f"User not found for UID! {rfid_tag}")
-
 
     except Exception as e:
         print(f"Error processing message: {e}")

@@ -145,6 +145,9 @@ void loop() {
   Serial.print("Published light intensity: ");
   Serial.println(msg);
 
+  Serial.print("Current light treshold: ");
+  Serial.println(light_threshold);
+  
   // Control LED based on light intensity
   if (analogValue < light_threshold) {
     Serial.println("Light intensity below threshold, turning LED ON");
