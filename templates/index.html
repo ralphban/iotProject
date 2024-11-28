@@ -52,6 +52,17 @@
                 </label>
             </div>
         </section>
+	<!-- User Profile Section -->
+	<section class="card">
+    		<h2>User Profile</h2>
+    		<div class="content">
+       	 	<p id="user-name">Name: Loading...</p>
+        	<p id="user-temp-threshold">Temperature Threshold: Loading...</p>
+        	<p id="user-light-threshold">Light Threshold: Loading...</p>
+    		</div>
+	</section>
+
+
     </main>
     <footer>
         <p>© 2024 IoT Dashboard</p>
@@ -233,6 +244,16 @@
         createGauges();
         setInterval(updateDashboard, 2000);
         updateDashboard(); // Initial call
+
+	if (data.user_profile) {
+            document.getElementById('user-name').innerText = `Name:${data.user_profile.name}`;
+            document.getElementById('user-temp-threshold').innerText = `Temperature Threshold: ${data.user_profile.temp_threshold}°C`;
+            document.getElementById('user-light-threshold').innerText = `Light Threshold: ${data.user_profile.light_threshold}`;
+        }
+
+    } catch (error) {
+        console.error("Error updating dashboard:", error);
+    }
     </script>
 </body>
 </html>
