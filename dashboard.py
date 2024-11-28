@@ -21,6 +21,7 @@ MQTT_PORT = 1883
 LIGHT_INTENSITY_TOPIC = "sensor/light_value"
 LIGHT_ALERT_TOPIC = "sensor/light_alert"
 RFID_TAG_TOPIC = "sensor/rfid_tag"  # Topic to publish RFID tag
+LIGHT_THRESHOLD_TOPIC = "sensor/light_threshold"
 
 
 # Email setup
@@ -152,7 +153,13 @@ def on_message(client, userdata, message):
 
 
             if user_profile:
+                user_name = user_profile["name"]
+                entry_time = datetime.now().strftime("%H:%M")
+                email_body = f"User {user_name} entered at {entry_time}"
+                send_email(email_body)
                 print(f"User Profile Found: {user_profile}")
+                client.publish(LIGHT_THRESHOLD_TOPIC, str(user_profile['light_threshold']))
+                print(f"User Light Threshold Sent: {user_profile['light_threshold']}")
             else:
                 print(f"User not found for UID! {rfid_tag}")
 

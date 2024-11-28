@@ -20,8 +20,6 @@ PubSubClient client(espClient);
 // Pin definitions for light sensor and LED
 #define LIGHT_SENSOR_PIN 34  // Analog pin for light sensor (ESP32 ADC pin)
 #define LED_PIN 2            // GPIO2 for LED
-#define ANALOG_THRESHOLD 400 // Light threshold for turning on LED
-
 
 // Pin definitions for RFID
 #define SS_PIN 5  // SDA Pin on RC522 (Chip Select)
@@ -34,6 +32,7 @@ MFRC522 rfid(SS_PIN, RST_PIN); // Create MFRC522 instance
 long lastMsg = 0;
 char msg[50];
 
+int light_threshold = 400;
 
 void setup() {
   // Initialize Serial communication for debugging
@@ -62,8 +61,10 @@ void setup() {
 
   // Connect to MQTT broker
   client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
   reconnect();  // Ensure MQTT connection
 
+  client.subscribe("sensor/light_threshold");
 
   // Initialize LED pin
   pinMode(LED_PIN, OUTPUT);  // Set the LED pin as an output
@@ -86,6 +87,18 @@ void reconnect() {
   }
 }
 
+void callback(char* topic, byte* payload, unsigned int length) {
+  // Handle the light threshold topic message
+  if (strcmp(topic, "sensor/light_threshold") == 0) {
+    String threshold = "";
+    for (int i = 0; i < length; i++) {
+      threshold += (char)payload[i];
+    }
+    light_threshold = threshold.toInt();  // Update light threshold
+    Serial.print("Updated light threshold: ");
+    Serial.println(light_threshold);
+  }
+}
 
 void loop() {
   // Ensure MQTT connection
@@ -95,26 +108,29 @@ void loop() {
   client.loop();
 
 
-  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
+  if (rfid.PICC_IsNewCardPresent()) {
+    if (rfid.PICC_ReadCardSerial()) {
 
-    // Construct UID in HEX format
-    String uidHex = "";
-    for (byte i = 0; i < rfid.uid.size; i++) {
-        if (rfid.uid.uidByte[i] < 0x10) {
-            uidHex += "0"; // Add leading zero for single-digit hex values
-        }
-        uidHex += String(rfid.uid.uidByte[i], HEX);
+
+      // Construct UID in HEX format
+      String uidHex = "";
+      for (byte i = 0; i < rfid.uid.size; i++) {
+          if (rfid.uid.uidByte[i] < 0x10) {
+              uidHex += "0"; // Add leading zero for single-digit hex values
+          }
+          uidHex += String(rfid.uid.uidByte[i], HEX);
+      }
+      uidHex.toUpperCase(); // Format to uppercase
+
+
+      // Publish RFID UID
+      client.publish("sensor/rfid_tag", uidHex.c_str()); // Publish to RFID topic
+      Serial.print("Published RFID UID: ");
+      Serial.println(uidHex);
+
+
+      rfid.PICC_HaltA(); // Halt the card to be ready for the next one
     }
-    uidHex.toUpperCase(); // Format to uppercase
-
-
-    // Publish RFID UID
-    client.publish("sensor/rfid_tag", uidHex.c_str()); // Publish to RFID topic
-    Serial.print("Published RFID UID: ");
-    Serial.println(uidHex);
-
-
-    rfid.PICC_HaltA(); // Halt the card to be ready for the next one
   }
 
   // Read light sensor value
@@ -129,9 +145,8 @@ void loop() {
   Serial.print("Published light intensity: ");
   Serial.println(msg);
 
-
   // Control LED based on light intensity
-  if (analogValue < ANALOG_THRESHOLD) {
+  if (analogValue < light_threshold) {
     Serial.println("Light intensity below threshold, turning LED ON");
     digitalWrite(LED_PIN, HIGH);  // Turn on LED
     snprintf(msg, 50, "Light intensity low: %d. LED ON.", analogValue);
